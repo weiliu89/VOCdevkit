@@ -1,29 +1,40 @@
 function [rec,prec,ap] = VOCevaldet(VOCopts,id,cls,draw)
 
-% load test set
-[gtids,t]=textread(sprintf(VOCopts.imgsetpath,VOCopts.testset),'%s %d');
+if nargin < 4
+    draw = false;
+end
 
-% load ground truth objects
-tic;
-npos=0;
-gt(length(gtids))=struct('BB',[],'diff',[],'det',[]);
-for i=1:length(gtids)
-    % display progress
-    if toc>1
-        fprintf('%s: pr: load: %d/%d\n',cls,i,length(gtids));
-        drawnow;
-        tic;
+gt_cache_file = sprintf(VOCopts.gtcachepath,cls);
+
+if exist(gt_cache_file, 'file')
+    load(gt_cache_file);
+else
+    % load test set
+    [gtids,t]=textread(sprintf(VOCopts.imgsetpath,VOCopts.testset),'%s %d');
+
+    % load ground truth objects
+    tic;
+    npos=0;
+    gt(length(gtids))=struct('BB',[],'diff',[],'det',[]);
+    for i=1:length(gtids)
+        % display progress
+        if toc>1
+            fprintf('%s: pr: load: %d/%d\n',cls,i,length(gtids));
+            drawnow;
+            tic;
+        end
+
+        % read annotation
+        rec=PASreadrecord(sprintf(VOCopts.annopath,gtids{i}));
+
+        % extract objects of class
+        clsinds=strmatch(cls,{rec.objects(:).class},'exact');
+        gt(i).BB=cat(1,rec.objects(clsinds).bbox)';
+        gt(i).diff=[rec.objects(clsinds).difficult];
+        gt(i).det=false(length(clsinds),1);
+        npos=npos+sum(~gt(i).diff);
     end
-    
-    % read annotation
-    rec=PASreadrecord(sprintf(VOCopts.annopath,gtids{i}));
-    
-    % extract objects of class
-    clsinds=strmatch(cls,{rec.objects(:).class},'exact');
-    gt(i).BB=cat(1,rec.objects(clsinds).bbox)';
-    gt(i).diff=[rec.objects(clsinds).difficult];
-    gt(i).det=false(length(clsinds),1);
-    npos=npos+sum(~gt(i).diff);
+    save(gt_cache_file, 'gtids', 'gt', 'npos');
 end
 
 % load results
@@ -47,7 +58,7 @@ for d=1:nd
         drawnow;
         tic;
     end
-    
+
     % find ground truth image
     i=strmatch(ids{d},gtids,'exact');
     if isempty(i)
@@ -64,11 +75,11 @@ for d=1:nd
         bi=[max(bb(1),bbgt(1)) ; max(bb(2),bbgt(2)) ; min(bb(3),bbgt(3)) ; min(bb(4),bbgt(4))];
         iw=bi(3)-bi(1)+1;
         ih=bi(4)-bi(2)+1;
-        if iw>0 & ih>0                
+        if iw>0 & ih>0
             % compute overlap as area of intersection / area of union
             ua=(bb(3)-bb(1)+1)*(bb(4)-bb(2)+1)+...
-               (bbgt(3)-bbgt(1)+1)*(bbgt(4)-bbgt(2)+1)-...
-               iw*ih;
+            (bbgt(3)-bbgt(1)+1)*(bbgt(4)-bbgt(2)+1)-...
+            iw*ih;
             ov=iw*ih/ua;
             if ov>ovmax
                 ovmax=ov;
@@ -81,7 +92,7 @@ for d=1:nd
         if ~gt(i).diff(jmax)
             if ~gt(i).det(jmax)
                 tp(d)=1;            % true positive
-		gt(i).det(jmax)=true;
+                gt(i).det(jmax)=true;
             else
                 fp(d)=1;            % false positive (multiple detection)
             end

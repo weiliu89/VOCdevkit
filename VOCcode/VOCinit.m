@@ -1,8 +1,25 @@
+function VOCinit(datadir, resdir, testset, VOC2006)
+% This function initialize the VOCdevkit.
+%   datadir: the root directory which contains the VOCcode and VOC2***.
+%   resdir: the directory which contains the results.
+%   testset: the name of the test set. "test" or "val".
+%   VOC2006: if true, use VOC2006 dataset; otherwise, use VOC2007.
+
+% get current directory with forward slashes
+
+cwd=cd;
+cwd(cwd=='\')='/';
+
+if nargin < 1
+    datadir = cwd;
+end
+if nargin < 3
+    testset = 'test';
+end
+if nargin < 4
+    VOC2006 = false;
+end
 clear VOCopts
-
-% use VOC2006 or VOC2007 data
-
-VOC2006=false; % set true to use VOC2006 data
 
 % dataset
 
@@ -12,23 +29,27 @@ else
     VOCopts.dataset='VOC2007';
 end
 
-% get current directory with forward slashes
+if nargin < 2
+    resdir = [cwd '/results/' VOCopts.dataset];
+end
 
-cwd=cd;
-cwd(cwd=='\')='/';
+datadir = [datadir '/'];
+resdir = [resdir '/'];
 
 % change this path to point to your copy of the PASCAL VOC data
-VOCopts.datadir=[cwd '/'];
+VOCopts.datadir=datadir;
 
 % change this path to a writable directory for your results
-VOCopts.resdir=[cwd '/results/' VOCopts.dataset '/'];
+VOCopts.resdir=resdir;
 
 % change this path to a writable local directory for the example code
 VOCopts.localdir=[cwd '/local/' VOCopts.dataset '/'];
+VOCopts.gtcachedir=[VOCopts.localdir 'cache'];
+VOCopts.gtcachepath=[VOCopts.gtcachedir '/%s_gt.mat'];
 
 % initialize the test set
 
-VOCopts.testset='val'; % use validation data for development test set
+VOCopts.testset=testset; % use validation data for development test set
 % VOCopts.testset='test'; % use test set for final challenge
 
 % initialize main challenge paths
@@ -128,3 +149,5 @@ VOCopts.minoverlap=0.5;
 VOCopts.exannocachepath=[VOCopts.localdir '%s_anno.mat'];
 
 VOCopts.exfdpath=[VOCopts.localdir '%s_fd.mat'];
+
+assignin('caller', 'VOCopts', VOCopts);
