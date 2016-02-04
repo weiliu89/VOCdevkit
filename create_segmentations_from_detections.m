@@ -1,9 +1,7 @@
 % Creates segmentation results from detection results. 
 % CREATE_SEGMENTATIONS_FROM_DETECTIONS(ID) creates segmentations from 
-% the detection results with identifier ID e.g. 'comp3'. All detections
-% will be used, no matter what their confidence level. Detections are
-% ranked by increasing confidence, so more confident detections occlude
-% less confident detections.
+% the detection results with identifier ID e.g. 'comp3'.  All detections
+% will be used, no matter what their confidence level.
 %
 % CREATE_SEGMENTATIONS_FROM_DETECTIONS(ID, CONFIDENCE) as above, but only 
 % detections above the specified confidence will be used.  
@@ -21,28 +19,48 @@ VOCinit;
 
 % load detection results 
 
-n=0;
+tic;
+imgids={};
 for clsnum = 1:VOCopts.nclasses
-    % display progress
-    fprintf('class %d/%d: load detections\n',clsnum,VOCopts.nclasses);
-    drawnow;
-        
     resultsfile = sprintf(VOCopts.detrespath,id,VOCopts.classes{clsnum});
     if ~exist(resultsfile,'file')
         error('Could not find detection results file to use to create segmentations (%s not found)',resultsfile);
     end
-    [ids,confs,xmin,ymin,xmax,ymax]=textread(resultsfile,'%s %f %f %f %f %f');    
-    t=[ids num2cell(ones(numel(ids),1)*clsnum) num2cell(confs) num2cell([xmin ymin xmax ymax],2)];
-    dets(n+(1:numel(ids)))=cell2struct(t,{'id' 'clsnum' 'conf' 'bbox'},2);
-    n=n+numel(ids);
+    [ids,confs,b1,b2,b3,b4]=textread(resultsfile,'%s %f %f %f %f %f');
+    BBOXS=[b1 b2 b3 b4];
+    previd='';
+    for j=1:numel(ids)
+        % display progress
+        if toc>1
+            fprintf('class %d/%d: load detections: %d/%d\n',clsnum,VOCopts.nclasses,j,numel(ids));
+            drawnow;
+            tic;
+        end
+        
+        imgid = ids{j};
+        conf = confs(j);
+        
+        if ~strcmp(imgid,previd)
+            ind = strmatch(imgid,imgids,'exact');
+        end
+        
+        detinfo.clsnum = clsnum;
+        detinfo.conf = conf;
+        detinfo.bbox = BBOXS(j,:);        
+        if isempty(ind)
+            imgids{end+1}=imgid;
+            ind = numel(imgids);
+            detnum=1;
+        else
+            detnum = numel(im(ind).det)+1;
+        end
+        im(ind).det(detnum) = detinfo;        
+    end
 end
 
 % Write out the segmentations
-
-segid=sprintf('comp%d',sscanf(id,'comp%d')+2);
-
-resultsdir = sprintf(VOCopts.seg.clsresdir,segid,VOCopts.testset);
-resultsdirinst = sprintf(VOCopts.seg.instresdir,segid,VOCopts.testset);
+resultsdir = sprintf(VOCopts.seg.clsresdir,id,VOCopts.testset);
+resultsdirinst = sprintf(VOCopts.seg.instresdir,id,VOCopts.testset);
 
 if ~exist(resultsdir,'dir')
     mkdir(resultsdir);
@@ -52,12 +70,7 @@ if ~exist(resultsdirinst,'dir')
     mkdir(resultsdirinst);
 end
 
-% load test set
-
-imgids=textread(sprintf(VOCopts.seg.imgsetpath,VOCopts.testset),'%s');
-
 cmap = VOClabelcolormap(255);
-detids={dets.id};
 tic;
 for j=1:numel(imgids)
     % display progress
@@ -68,15 +81,13 @@ for j=1:numel(imgids)
     end
     imname = imgids{j};
 
-    classlabelfile = sprintf(VOCopts.seg.clsrespath,segid,VOCopts.testset,imname);
-    instlabelfile = sprintf(VOCopts.seg.instrespath,segid,VOCopts.testset,imname);
+    classlabelfile = sprintf(VOCopts.seg.clsrespath,id,VOCopts.testset,imname);
+    instlabelfile = sprintf(VOCopts.seg.instrespath,id,VOCopts.testset,imname);
 
     imgfile = sprintf(VOCopts.imgpath,imname);
     imginfo = imfinfo(imgfile);
 
-    vdets=dets(strmatch(imname,detids,'exact'));
-    
-    [instim,classim]= convert_dets_to_image(imginfo.Width, imginfo.Height,vdets,confidence);
+    [instim,classim]= convert_dets_to_image(imginfo.Width, imginfo.Height,im(j).det,confidence);
     imwrite(instim,cmap,instlabelfile);
     imwrite(classim,cmap,classlabelfile);    
     
@@ -91,18 +102,19 @@ end
 % and a class-labelled image
 function [instim,classim]=convert_dets_to_image(W,H,dets,confidence)
 
-instim = uint8(zeros([H W]));
-classim = uint8(zeros([H W])); 
-[sc,si]=sort([dets.conf]);
-si(sc<confidence)=[];
-for j=si
-    detinfo = dets(j);
-    bbox = round(detinfo.bbox); 
-    % restrict to fit within image
-    bbox([1 3]) = min(max(bbox([1 3]),1),W);
-    bbox([2 4]) = min(max(bbox([2 4]),1),H);      
-    instim(bbox(2):bbox(4),bbox(1):bbox(3)) = j;
-    classim(bbox(2):bbox(4),bbox(1):bbox(3)) = detinfo.clsnum;      
-end
+    instim = uint8(zeros([H W]));
+    classim = uint8(zeros([H W]));  
+    for j=1:numel(dets)
+        detinfo = dets(j);
+        if detinfo.conf<confidence
+            continue
+        end
+        bbox = round(detinfo.bbox); 
+        % restrict to fit within image
+        bbox([1 3]) = min(max(bbox([1 3]),1),W);
+        bbox([2 4]) = min(max(bbox([2 4]),1),H);      
+        instim(bbox(2):bbox(4),bbox(1):bbox(3)) = j;
+        classim(bbox(2):bbox(4),bbox(1):bbox(3)) = detinfo.clsnum;      
+    end
 
 

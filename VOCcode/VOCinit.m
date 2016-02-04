@@ -1,29 +1,30 @@
 clear VOCopts
 
+% use VOC2006 or VOC2007 data
+
+VOC2006=false; % set true to use VOC2006 data
+
 % dataset
-%
-% Note for experienced users: the VOC2008-11 test sets are subsets
-% of the VOC2012 test set. You don't need to do anything special
-% to submit results for VOC2008-11.
 
-VOCopts.dataset='VOC2012';
+if VOC2006
+    VOCopts.dataset='VOC2006';
+else
+    VOCopts.dataset='VOC2007';
+end
 
-% get devkit directory with forward slashes
-devkitroot=strrep(fileparts(fileparts(mfilename('fullpath'))),'\','/');
+% get current directory with forward slashes
+
+cwd=cd;
+cwd(cwd=='\')='/';
 
 % change this path to point to your copy of the PASCAL VOC data
-VOCopts.datadir=[devkitroot '/'];
+VOCopts.datadir=[cwd '/'];
 
 % change this path to a writable directory for your results
-VOCopts.resdir=[devkitroot '/results/' VOCopts.dataset '/'];
+VOCopts.resdir=[cwd '/results/' VOCopts.dataset '/'];
 
 % change this path to a writable local directory for the example code
-VOCopts.localdir=[devkitroot '/local/' VOCopts.dataset '/'];
-
-% initialize the training set
-
-VOCopts.trainset='train'; % use train for development
-% VOCopts.trainset='trainval'; % use train+val for final challenge
+VOCopts.localdir=[cwd '/local/' VOCopts.dataset '/'];
 
 % initialize the test set
 
@@ -54,89 +55,76 @@ VOCopts.seg.instrespath=[VOCopts.seg.instresdir '/%s.png'];
 % initialize layout task paths
 
 VOCopts.layout.imgsetpath=[VOCopts.datadir VOCopts.dataset '/ImageSets/Layout/%s.txt'];
-VOCopts.layout.respath=[VOCopts.resdir 'Layout/%s_layout_' VOCopts.testset '.xml'];
-
-% initialize action task paths
-
-VOCopts.action.imgsetpath=[VOCopts.datadir VOCopts.dataset '/ImageSets/Action/%s.txt'];
-VOCopts.action.clsimgsetpath=[VOCopts.datadir VOCopts.dataset '/ImageSets/Action/%s_%s.txt'];
-VOCopts.action.respath=[VOCopts.resdir 'Action/%s_action_' VOCopts.testset '_%s.txt'];
+VOCopts.layout.respath=[VOCopts.resdir 'Layout/%s_layout_' VOCopts.testset '_%s.xml'];
 
 % initialize the VOC challenge options
 
-% classes
+if VOC2006
+    
+    % VOC2006 classes
+    
+    VOCopts.classes={...
+        'bicycle'
+        'bus'
+        'car'
+        'cat'
+        'cow'
+        'dog'
+        'horse'
+        'motorbike'
+        'person'
+        'sheep'};
+else
 
-VOCopts.classes={...
-    'aeroplane'
-    'bicycle'
-    'bird'
-    'boat'
-    'bottle'
-    'bus'
-    'car'
-    'cat'
-    'chair'
-    'cow'
-    'diningtable'
-    'dog'
-    'horse'
-    'motorbike'
-    'person'
-    'pottedplant'
-    'sheep'
-    'sofa'
-    'train'
-    'tvmonitor'};
+    % VOC2007 classes
+    
+    VOCopts.classes={...
+        'aeroplane'
+        'bicycle'
+        'bird'
+        'boat'
+        'bottle'
+        'bus'
+        'car'
+        'cat'
+        'chair'
+        'cow'
+        'diningtable'
+        'dog'
+        'horse'
+        'motorbike'
+        'person'
+        'pottedplant'
+        'sheep'
+        'sofa'
+        'train'
+        'tvmonitor'};
+end
 
 VOCopts.nclasses=length(VOCopts.classes);	
 
-% poses
-
 VOCopts.poses={...
     'Unspecified'
-    'Left'
-    'Right'
+    'SideFaceLeft'
+    'SideFaceRight'
     'Frontal'
     'Rear'};
 
 VOCopts.nposes=length(VOCopts.poses);
-
-% layout parts
 
 VOCopts.parts={...
     'head'
     'hand'
     'foot'};    
 
-VOCopts.nparts=length(VOCopts.parts);
-
 VOCopts.maxparts=[1 2 2];   % max of each of above parts
 
-% actions
-
-VOCopts.actions={...    
-    'other'             % skip this when training classifiers
-    'jumping'
-    'phoning'
-    'playinginstrument'
-    'reading'
-    'ridingbike'
-    'ridinghorse'
-    'running'
-    'takingphoto'
-    'usingcomputer'
-    'walking'};
-
-VOCopts.nactions=length(VOCopts.actions);
-
-% overlap threshold
+VOCopts.nparts=length(VOCopts.parts);
 
 VOCopts.minoverlap=0.5;
 
-% annotation cache for evaluation
+% initialize example options
 
-VOCopts.annocachepath=[VOCopts.localdir '%s_anno.mat'];
-
-% options for example implementations
+VOCopts.exannocachepath=[VOCopts.localdir '%s_anno.mat'];
 
 VOCopts.exfdpath=[VOCopts.localdir '%s_fd.mat'];

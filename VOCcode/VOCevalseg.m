@@ -1,15 +1,10 @@
-%VOCEVALSEG Evaluates a set of segmentation results.
+%VOCEVALSEG Creates a confusion matrix for a set of segmentation results.
 % VOCEVALSEG(VOCopts,ID); prints out the per class and overall
-% segmentation accuracies. Accuracies are given using the intersection/union 
-% metric:
-%   true positives / (true positives + false positives + false negatives) 
+% segmentation accuracies.
 %
 % [ACCURACIES,AVACC,CONF] = VOCEVALSEG(VOCopts,ID) returns the per class
 % percentage ACCURACIES, the average accuracy AVACC and the confusion
 % matrix CONF.
-%
-% [ACCURACIES,AVACC,CONF,RAWCOUNTS] = VOCEVALSEG(VOCopts,ID) also returns
-% the unnormalised confusion matrix, which contains raw pixel counts.
 function [accuracies,avacc,conf,rawcounts] = VOCevalseg(VOCopts,id)
 
 % image test set
@@ -62,26 +57,16 @@ for i=1:length(gtids)
 end
 
 % confusion matrix - first index is true label, second is inferred label
-%conf = zeros(num);
-conf = 100*confcounts./repmat(1E-20+sum(confcounts,2),[1 size(confcounts,2)]);
+conf = zeros(num);
 rawcounts = confcounts;
-
-% Percentage correct labels measure is no longer being used.  Uncomment if
-% you wish to see it anyway
-%overall_acc = 100*sum(diag(confcounts)) / sum(confcounts(:));
-%fprintf('Percentage of pixels correctly labelled overall: %6.3f%%\n',overall_acc);
-
+overall_acc = 100*sum(diag(confcounts)) / sum(confcounts(:));
+fprintf('Percentage of pixels correctly labelled overall: %6.3f%%\n',overall_acc);
 accuracies = zeros(VOCopts.nclasses,1);
-fprintf('Accuracy for each class (intersection/union measure)\n');
+fprintf('Percentage of pixels correctly labelled for each class\n');
 for j=1:num
-   
-   gtj=sum(confcounts(j,:));
-   resj=sum(confcounts(:,j));
-   gtjresj=confcounts(j,j);
-   % The accuracy is: true positive / (true positive + false positive + false negative) 
-   % which is equivalent to the following percentage:
-   accuracies(j)=100*gtjresj/(gtj+resj-gtjresj);   
-   
+   rowsum = sum(confcounts(j,:)); 
+   if (rowsum>0), conf(j,:) = 100*confcounts(j,:)/rowsum;   end;
+   accuracies(j) = conf(j,j);
    clname = 'background';
    if (j>1), clname = VOCopts.classes{j-1};end;
    fprintf('  %14s: %6.3f%%\n',clname,accuracies(j));

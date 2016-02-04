@@ -1,41 +1,27 @@
 function [rec,prec,ap] = VOCevaldet(VOCopts,id,cls,draw)
 
 % load test set
+[gtids,t]=textread(sprintf(VOCopts.imgsetpath,VOCopts.testset),'%s %d');
 
-cp=sprintf(VOCopts.annocachepath,VOCopts.testset);
-if exist(cp,'file')
-    fprintf('%s: pr: loading ground truth\n',cls);
-    load(cp,'gtids','recs');
-else
-    [gtids,t]=textread(sprintf(VOCopts.imgsetpath,VOCopts.testset),'%s %d');
-    for i=1:length(gtids)
-        % display progress
-        if toc>1
-            fprintf('%s: pr: load: %d/%d\n',cls,i,length(gtids));
-            drawnow;
-            tic;
-        end
-
-        % read annotation
-        recs(i)=PASreadrecord(sprintf(VOCopts.annopath,gtids{i}));
-    end
-    save(cp,'gtids','recs');
-end
-
-fprintf('%s: pr: evaluating detections\n',cls);
-
-% hash image ids
-hash=VOChash_init(gtids);
-        
-% extract ground truth objects
-
+% load ground truth objects
+tic;
 npos=0;
 gt(length(gtids))=struct('BB',[],'diff',[],'det',[]);
 for i=1:length(gtids)
+    % display progress
+    if toc>1
+        fprintf('%s: pr: load: %d/%d\n',cls,i,length(gtids));
+        drawnow;
+        tic;
+    end
+    
+    % read annotation
+    rec=PASreadrecord(sprintf(VOCopts.annopath,gtids{i}));
+    
     % extract objects of class
-    clsinds=strmatch(cls,{recs(i).objects(:).class},'exact');
-    gt(i).BB=cat(1,recs(i).objects(clsinds).bbox)';
-    gt(i).diff=[recs(i).objects(clsinds).difficult];
+    clsinds=strmatch(cls,{rec.objects(:).class},'exact');
+    gt(i).BB=cat(1,rec.objects(clsinds).bbox)';
+    gt(i).diff=[rec.objects(clsinds).difficult];
     gt(i).det=false(length(clsinds),1);
     npos=npos+sum(~gt(i).diff);
 end
@@ -63,7 +49,7 @@ for d=1:nd
     end
     
     % find ground truth image
-    i=VOChash_lookup(hash,ids{d});
+    i=strmatch(ids{d},gtids,'exact');
     if isempty(i)
         error('unrecognized image "%s"',ids{d});
     elseif length(i)>1
@@ -111,7 +97,16 @@ tp=cumsum(tp);
 rec=tp/npos;
 prec=tp./(fp+tp);
 
-ap=VOCap(rec,prec);
+% compute average precision
+
+ap=0;
+for t=0:0.1:1
+    p=max(prec(rec>=t));
+    if isempty(p)
+        p=0;
+    end
+    ap=ap+p/11;
+end
 
 if draw
     % plot precision/recall

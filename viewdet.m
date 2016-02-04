@@ -1,11 +1,11 @@
-function viewdet(id,cls,onlytp)
+function viewdet(cls,onlytp)
 
-if nargin<2
-    error(['usage: viewdet(competition,class,onlytp) e.g. viewdet(''comp3'',''car'') or ' ...
-            'viewdet(''comp3'',''car'',true) to show true positives']);
+if nargin<1
+    error(['usage: viewdet(class,onlytp) e.g. viewdet(' 39 'car' 39 ') or ' ...
+            'viewdet(' 39 'car' 39 ',true) to show true positives']);
 end
 
-if nargin<3
+if nargin<2
     onlytp=false;
 end
 
@@ -16,41 +16,32 @@ addpath([cd '/VOCcode']);
 VOCinit;
 
 % load test set
-cp=sprintf(VOCopts.annocachepath,VOCopts.testset);
-if exist(cp,'file')
-    fprintf('%s: loading test set\n',cls);
-    load(cp,'gtids','recs');
-else
-    gtids=textread(sprintf(VOCopts.imgsetpath,VOCopts.testset),'%s');
-    for i=1:length(gtids)
-        % display progress
-        if toc>1
-            fprintf('%s: load: %d/%d\n',cls,i,length(gtids));
-            drawnow;
-            tic;
-        end
+[gtids,t]=textread(sprintf(VOCopts.imgsetpath,VOCopts.testset),'%s %d');
 
-        % read annotation
-        recs(i)=PASreadrecord(sprintf(VOCopts.annopath,gtids{i}));
-    end
-    save(cp,'gtids','recs');
-end
-
-% extract ground truth objects
-
+% load ground truth objects
+tic;
 npos=0;
-gt(length(gtids))=struct('BB',[],'diff',[],'det',[]);
 for i=1:length(gtids)
+    % display progress
+    if toc>1
+        fprintf('%s: viewdet: load: %d/%d\n',cls,i,length(gtids));
+        drawnow;
+        tic;
+    end
+    
+    % read annotation
+    rec=PASreadrecord(sprintf(VOCopts.annopath,gtids{i}));
+    
     % extract objects of class
-    clsinds=strmatch(cls,{recs(i).objects(:).class},'exact');
-    gt(i).BB=cat(1,recs(i).objects(clsinds).bbox)';
-    gt(i).diff=[recs(i).objects(clsinds).difficult];
+    clsinds=strmatch(cls,{rec.objects(:).class},'exact');
+    gt(i).BB=cat(1,rec.objects(clsinds).bbox)';
+    gt(i).diff=[rec.objects(clsinds).difficult];
     gt(i).det=false(length(clsinds),1);
     npos=npos+sum(~gt(i).diff);
 end
 
 % load results
-[ids,confidence,b1,b2,b3,b4]=textread(sprintf(VOCopts.detrespath,id,cls),'%s %f %f %f %f %f');
+[ids,confidence,b1,b2,b3,b4]=textread(sprintf(VOCopts.detrespath,'comp3',cls),'%s %f %f %f %f %f');
 BB=[b1 b2 b3 b4]';
 
 % sort detections by decreasing confidence
@@ -59,8 +50,6 @@ ids=ids(si);
 BB=BB(:,si);
 
 % view detections
-
-clf;
 nd=length(confidence);
 tic;
 for d=1:nd
@@ -122,7 +111,7 @@ for d=1:nd
     axis image;
     axis off;
     title(sprintf('det %d/%d: image: "%s" (green=true pos,red=false pos,yellow=ground truth',...
-            d,nd,gtids{i}),'interpreter','none');
+            d,nd,gtids{i}));
     
     fprintf('press any key to continue with next image\n');
     pause;

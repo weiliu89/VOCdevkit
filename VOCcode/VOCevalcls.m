@@ -3,9 +3,6 @@ function [rec,prec,ap] = VOCevalcls(VOCopts,id,cls,draw)
 % load test set
 [gtids,gt]=textread(sprintf(VOCopts.clsimgsetpath,cls,VOCopts.testset),'%s %d');
 
-% hash image ids
-hash=VOChash_init(gtids);
-
 % load results
 [ids,confidence]=textread(sprintf(VOCopts.clsrespath,id,cls),'%s %f');
 
@@ -21,7 +18,7 @@ for i=1:length(ids)
     end
     
     % find ground truth image
-    j=VOChash_lookup(hash,ids{i});
+    j=strmatch(ids{i},gtids,'exact');
     if isempty(j)
         error('unrecognized image "%s"',ids{i});
     elseif length(j)>1
@@ -42,7 +39,16 @@ tp=cumsum(tp);
 rec=tp/sum(gt>0);
 prec=tp./(fp+tp);
 
-ap=VOCap(rec,prec);
+% compute average precision
+
+ap=0;
+for t=0:0.1:1
+    p=max(prec(rec>=t));
+    if isempty(p)
+        p=0;
+    end
+    ap=ap+p/11;
+end
 
 if draw
     % plot precision/recall

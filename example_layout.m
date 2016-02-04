@@ -6,101 +6,154 @@ addpath([cd '/VOCcode']);
 % initialize VOC options
 VOCinit;
 
-% train and test layout
+% train and test detector
 
-gtobjects=train(VOCopts);                               % train layout
-test(VOCopts,gtobjects);                                % test layout
-[recall,prec,ap]=VOCevallayout_pr(VOCopts,'comp7',true);   % compute and display PR    
+cls='person';
+detector=train(VOCopts,cls);                                % train detector
+test(VOCopts,cls,detector);                                 % test detector
+[recall,prec,ap]=VOCevallayout(VOCopts,'comp6',cls,true);   % compute and display PR    
 
-% train: extract all person objects with parts
-function objects = train(VOCopts)
+% train detector
+function detector = train(VOCopts,cls)
 
-% load training set
-[imgids,objids]=textread(sprintf(VOCopts.layout.imgsetpath,VOCopts.trainset),'%s %d');
+% load 'train' image set
+ids=textread(sprintf(VOCopts.layout.imgsetpath,'train'),'%s');
 
-% extract objects
+% extract features and objects
 n=0;
 tic;
-for i=1:length(imgids)
+for i=1:length(ids)
     % display progress
     if toc>1
-        fprintf('train: %d/%d\n',i,length(imgids));
+        fprintf('%s: train: %d/%d\n',cls,i,length(ids));
         drawnow;
         tic;
     end
     
     % read annotation
-    rec=PASreadrecord(sprintf(VOCopts.annopath,imgids{i}));
+    rec=PASreadrecord(sprintf(VOCopts.annopath,ids{i}));
     
-    % extract object
-    n=n+1;
-    objects(n)=rec.objects(objids(i));
+    % find objects of class and extract difficult flags for these objects
+    clsinds=strmatch(cls,{rec.objects(:).class},'exact');
+    diff=[rec.objects(clsinds).difficult];
+    hasparts=[rec.objects(clsinds).hasparts];
     
-    % move bounding box to origin    
-    xmin=objects(n).bbox(1);
-    ymin=objects(n).bbox(2);
-    objects(n).bbox=objects(n).bbox-[xmin ymin xmin ymin];
-    for j=1:numel(objects(n).part)
-        objects(n).part(j).bbox=objects(n).part(j).bbox-[xmin ymin xmin ymin];
+    % assign ground truth class to image
+    if isempty(clsinds)
+        gt=-1;          % no objects of class
+    elseif any(~diff&hasparts)
+        gt=1;           % at least one non-difficult object with parts
+    else
+        gt=0;           % only difficult/objects without parts
     end
-end
-    
-% run layout on test images
-function out = test(VOCopts,gtobjects)
 
-% load test set
-[imgids,objids]=textread(sprintf(VOCopts.layout.imgsetpath,VOCopts.testset),'%s %d');
+    if gt
+        % extract features for image
+        try
+            % try to load features
+            load(sprintf(VOCopts.exfdpath,ids{i}),'fd');
+        catch
+            % compute and save features
+            I=imread(sprintf(VOCopts.imgpath,ids{i}));
+            fd=extractfd(VOCopts,I);
+            save(sprintf(VOCopts.exfdpath,ids{i}),'fd');
+        end
+        
+        n=n+1;
+        
+        detector(n).fd=fd;
+        
+        % extract non-difficult objects with parts
 
-% estimate layout for each object
+        detector(n).object=rec.objects(clsinds(~diff&hasparts));
+        
+        % mark image as positive or negative
+        
+        detector(n).gt=gt;
+    end
+end    
 
-GTBB=cat(1,gtobjects.bbox)';
-n=0;
+% run detector on test images
+function out = test(VOCopts,cls,detector)
+
+% load test set ('val' for development kit)
+[ids,gt]=textread(sprintf(VOCopts.layout.imgsetpath,VOCopts.testset),'%s %d');
+
+% apply detector to each image
+rec.results.layout=[];
 tic;
-for i=1:length(imgids)
+for i=1:length(ids)
     % display progress
     if toc>1
-        fprintf('test: %d/%d\n',i,length(imgids));
+        fprintf('%s: test: %d/%d\n',cls,i,length(ids));
         drawnow;
         tic;
     end
-
-    % read annotation
-    rec=PASreadrecord(sprintf(VOCopts.annopath,imgids{i}));
-
-    % extract bounding box    
-    bb=rec.objects(objids(i)).bbox;
     
-    % move to origin
-    xmin=bb(1);
-    ymin=bb(2);
-    bb=bb-[xmin ymin xmin ymin];
-        
-    % find nearest ground truth bounding box    
+    try
+        % try to load features
+        load(sprintf(VOCopts.exfdpath,ids{i}),'fd');
+    catch
+        % compute and save features
+        I=imread(sprintf(VOCopts.imgpath,ids{i}));
+        fd=extractfd(VOCopts,I);
+        save(sprintf(VOCopts.exfdpath,ids{i}),'fd');
+    end
 
-    d=sum(bb.*bb)+sum(GTBB.*GTBB,1)-2*bb*GTBB;
-    [dmin,nn]=min(d);
-        
-    % copy layout from nearest neighbour
+    % compute confidence of positive classification and layout
     
-    clear l;
-    l.image=imgids{i};              % image identifier
-    l.object=num2str(objids(i));    % object identifier
-    l.confidence=num2str(-dmin);  % confidence
-    nno=gtobjects(nn);
-    for j=1:numel(nno.part)
-        l.part(j).class=nno.part(j).class;                         % part class
-        l.part(j).bndbox.xmin=num2str(nno.part(j).bbox(1)+xmin);   % bounding box
-        l.part(j).bndbox.ymin=num2str(nno.part(j).bbox(2)+ymin);
-        l.part(j).bndbox.xmax=num2str(nno.part(j).bbox(3)+xmin);
-        l.part(j).bndbox.ymax=num2str(nno.part(j).bbox(4)+ymin);
-    end        
-
-    % add layout result
-    n=n+1;
-    xml.results.layout(n)=l;
+    l=detect(VOCopts,detector,fd,ids{i});
+    if isempty(rec.results.layout)
+        rec.results.layout=l;
+    else
+        rec.results.layout=[rec.results.layout l];
+    end
 end
 
 % write results file
 
-fprintf('saving results\n');
-VOCwritexml(xml,sprintf(VOCopts.layout.respath,'comp7'));
+fprintf('saving results...\n');
+VOCwritexml(rec,sprintf(VOCopts.layout.respath,'comp6',cls));
+
+% trivial feature extractor: compute mean RGB
+function fd = extractfd(VOCopts,I)
+
+fd=squeeze(sum(sum(double(I)))/(size(I,1)*size(I,2)));
+
+% trivial detector: confidence is computed as in example_classifier, and
+% bounding boxes of nearest positive training image are output
+function layout = detect(VOCopts,detector,fd,imgid)
+
+FD=[detector.fd];
+
+% compute confidence
+d=sum(fd.*fd)+sum(FD.*FD)-2*fd'*FD;
+dp=min(d([detector.gt]>0));
+dn=min(d([detector.gt]<0));
+c=dn/(dp+eps);
+
+% copy objects and layout from nearest positive image
+
+pinds=find([detector.gt]>0);
+[dp,di]=min(d(pinds));
+pind=pinds(di);
+
+BB=[];
+for i=1:length(detector(pind).object)
+    o=detector(pind).object(i);
+        
+    layout(i).image=imgid;
+    layout(i).confidence=c;
+    layout(i).bndbox.xmin=o.bbox(1);
+    layout(i).bndbox.ymin=o.bbox(2);
+    layout(i).bndbox.xmax=o.bbox(3);
+    layout(i).bndbox.ymax=o.bbox(4);
+        
+    for j=1:length(o.part)    
+        layout(i).part(j).class=o.part(j).class;
+        layout(i).part(j).bndbox.xmin=o.part(j).bbox(1);
+        layout(i).part(j).bndbox.ymin=o.part(j).bbox(2);
+        layout(i).part(j).bndbox.xmax=o.part(j).bbox(3);
+        layout(i).part(j).bndbox.ymax=o.part(j).bbox(4);
+    end
+end

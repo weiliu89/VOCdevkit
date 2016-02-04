@@ -6,11 +6,6 @@
 % Segmentations are generated from detection bounding boxes.
 function example_segmenter
 
-% change this path if you install the VOC code elsewhere
-addpath([cd '/VOCcode']);
-
-% initialize VOC options
-VOCinit;
-
-create_segmentations_from_detections('comp3',1);
-VOCevalseg(VOCopts,'comp5');
+VOCinit
+create_segmentations_from_detections('comp3',1)
+VOCevalseg(VOCopts,'comp3');

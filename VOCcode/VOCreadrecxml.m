@@ -3,17 +3,13 @@ function rec = VOCreadrecxml(path)
 x=VOCreadxml(path);
 x=x.annotation;
 
-rec.folder=x.folder;
-rec.filename=x.filename;
-rec.source.database=x.source.database;
-rec.source.annotation=x.source.annotation;
-rec.source.image=x.source.image;
+rec=rmfield(x,'object');
 
-rec.size.width=str2double(x.size.width);
-rec.size.height=str2double(x.size.height);
-rec.size.depth=str2double(x.size.depth);
+rec.size.width=str2double(rec.size.width);
+rec.size.height=str2double(rec.size.height);
+rec.size.depth=str2double(rec.size.depth);
 
-rec.segmented=strcmp(x.segmented,'1');
+rec.segmented=strcmp(rec.segmented,'1');
 
 rec.imgname=[x.folder '/JPEGImages/' x.filename];
 rec.imgsize=str2double({x.size.width x.size.height x.size.depth});
@@ -43,12 +39,6 @@ else
     p.truncated=false;
 end
 
-if isfield(o,'occluded')
-    p.occluded=strcmp(o.occluded,'1');
-else
-    p.occluded=false;
-end
-
 if isfield(o,'difficult')
     p.difficult=strcmp(o.difficult,'1');
 else
@@ -59,11 +49,8 @@ p.label=['PAS' p.class p.view];
 if p.truncated
     p.label=[p.label 'Trunc'];
 end
-if p.occluded
-    p.label=[p.label 'Occ'];
-end
 if p.difficult
-    p.label=[p.label 'Diff'];
+    p.label=[p.label 'Difficult'];
 end
 
 p.orglabel=p.label;
@@ -94,26 +81,8 @@ if isfield(o,'part')&&~isempty(o.part)
     for i=1:length(o.part)
         p.part(i)=xmlobjtopas(o.part(i));
     end
-else    
+else
     p.hasparts=false;
     p.part=[];
 end
-
-if isfield(o,'point')
-    p.haspoint=true;
-    p.point.x=str2double(o.point.x);
-    p.point.y=str2double(o.point.y);
-else
-    p.point=[];
-end
-
-if isfield(o,'actions')
-    p.hasactions=true;
-    fn=fieldnames(o.actions);
-    for i=1:numel(fn)
-        p.actions.(fn{i})=strcmp(o.actions.(fn{i}),'1');
-    end
-else
-    p.hasactions=false;
-    p.actions=[];
-end
+    

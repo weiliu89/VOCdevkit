@@ -33,65 +33,50 @@ for i=1:length(ids)
     % display annotation
     
     if rec.segmented
-        subplot(311);
+        subplot(131);
     else
         clf;
     end
     
-    imagesc(I);
+    imshow(I);
     hold on;
     for j=1:length(rec.objects)
         bb=rec.objects(j).bbox;
-        lbl=rec.objects(j).class;
         if rec.objects(j).difficult
-            ls='r'; % "difficult": red
+            ls='y'; % "difficult": yellow
         else
             ls='g'; % not "difficult": green
         end
         if rec.objects(j).truncated
-            lbl=[lbl 'T'];
-        end
-        if rec.objects(j).occluded
-            lbl=[lbl 'O'];
+            ls=[ls ':'];    % truncated: dotted
+        else
+            ls=[ls '-'];    % not truncated: solid
         end
         plot(bb([1 3 3 1 1]),bb([2 2 4 4 2]),ls,'linewidth',2);
-        text(bb(1),bb(2),lbl,'color','k','backgroundcolor',ls(1),...
+        text(bb(1),bb(2),rec.objects(j).class,'color','k','backgroundcolor',ls(1),...
             'verticalalignment','top','horizontalalignment','left','fontsize',8);
-        
-        if isfield(rec.objects(j),'actions')
-            albl='';
-            for k=1:VOCopts.nactions
-                if rec.objects(j).actions.(VOCopts.actions{k})
-                    if ~isempty(albl)
-                        albl=[albl '+'];
-                    end
-                    albl=[albl VOCopts.actions{k}];
-                end
-            end
-            text(bb(3),bb(4),albl,'color','k','backgroundcolor',ls(1),...
-                'verticalalignment','bottom','horizontalalignment','right','fontsize',8);
-        end
         
         for k=1:length(rec.objects(j).part)
             bb=rec.objects(j).part(k).bbox;
-            plot(bb([1 3 3 1 1]),bb([2 2 4 4 2]),[ls ':'],'linewidth',2);
+            plot(bb([1 3 3 1 1]),bb([2 2 4 4 2]),ls,'linewidth',2);
             text(bb(1),bb(2),rec.objects(j).part(k).class,'color','k','backgroundcolor',ls(1),...
                 'verticalalignment','top','horizontalalignment','left','fontsize',8);
         end
     end
     hold off;
-    axis image off;
-    title(sprintf('image: %d/%d: "%s" (red=difficult, T=truncated, O=occluded)',...
-            i,length(ids),ids{i}),'interpreter','none');
+    axis image;
+    axis off;
+    title(sprintf('image: %d/%d: "%s" (dotted=truncated, yellow=difficult)',...
+            i,length(ids),ids{i}));
     
     if rec.segmented
-        subplot(312);
+        subplot(132);
         imshow(Sclass,CMclass);
         axis image;
         axis off;
         title('segmentation by class');
         
-        subplot(313);
+        subplot(133);
         imshow(Sobj,CMobj);
         axis image;
         axis off;
