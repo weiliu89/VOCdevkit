@@ -1,4 +1,4 @@
-function VOCinit(datadir, resdir, testset, VOC2006)
+function VOCopts = VOCinit(datadir, resdir, testset, VOC2006)
 % This function initialize the VOCdevkit.
 %   datadir: the root directory which contains the VOCcode and VOC2***.
 %   resdir: the directory which contains the results.

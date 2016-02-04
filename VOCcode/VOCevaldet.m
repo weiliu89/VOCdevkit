@@ -1,6 +1,9 @@
-function [rec,prec,ap] = VOCevaldet(VOCopts,id,cls,draw)
+function [rec,prec,ap] = VOCevaldet(VOCopts,id,cls,verbose,draw)
 
 if nargin < 4
+    verbose = true;
+end
+if nargin < 5
     draw = false;
 end
 
@@ -11,7 +14,7 @@ if exist(gt_cache_file, 'file')
 else
     % load test set
     [gtids,t]=textread(sprintf(VOCopts.imgsetpath,VOCopts.testset),'%s %d');
-
+    
     % load ground truth objects
     tic;
     npos=0;
@@ -19,14 +22,16 @@ else
     for i=1:length(gtids)
         % display progress
         if toc>1
-            fprintf('%s: pr: load: %d/%d\n',cls,i,length(gtids));
-            drawnow;
+            if verbose
+                fprintf('%s: pr: load: %d/%d\n',cls,i,length(gtids));
+                drawnow;
+            end
             tic;
         end
-
+        
         % read annotation
         rec=PASreadrecord(sprintf(VOCopts.annopath,gtids{i}));
-
+        
         % extract objects of class
         clsinds=strmatch(cls,{rec.objects(:).class},'exact');
         gt(i).BB=cat(1,rec.objects(clsinds).bbox)';
@@ -54,11 +59,13 @@ tic;
 for d=1:nd
     % display progress
     if toc>1
-        fprintf('%s: pr: compute: %d/%d\n',cls,d,nd);
-        drawnow;
+        if verbose
+            fprintf('%s: pr: compute: %d/%d\n',cls,d,nd);
+            drawnow;
+        end
         tic;
     end
-
+    
     % find ground truth image
     i=strmatch(ids{d},gtids,'exact');
     if isempty(i)
@@ -66,7 +73,7 @@ for d=1:nd
     elseif length(i)>1
         error('multiple image "%s"',ids{d});
     end
-
+    
     % assign detection to ground truth object if any
     bb=BB(:,d);
     ovmax=-inf;
@@ -78,8 +85,8 @@ for d=1:nd
         if iw>0 & ih>0
             % compute overlap as area of intersection / area of union
             ua=(bb(3)-bb(1)+1)*(bb(4)-bb(2)+1)+...
-            (bbgt(3)-bbgt(1)+1)*(bbgt(4)-bbgt(2)+1)-...
-            iw*ih;
+                (bbgt(3)-bbgt(1)+1)*(bbgt(4)-bbgt(2)+1)-...
+                iw*ih;
             ov=iw*ih/ua;
             if ov>ovmax
                 ovmax=ov;
