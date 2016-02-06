@@ -2,7 +2,13 @@ function demo_eval_det(resdir, testset, datadir, runparallel, verbose)
 % This code shows how to evalaute the detection results.
 %   resdir: the directory which stores the results
 %   testset: the name of the set for test.
+%   datadir: the directory which contains all the data/code.
+%   runparallel: if true, run evaluation in parallel.
+%   verbose: if true, display progress.
 %
+% Example: demo_eval_det('/path/to/results', 'test', '/path/to/data', true)
+%
+
 addpath('VOCcode');
 
 cwd=cd;
@@ -32,6 +38,10 @@ aps = zeros(1, num_classes);
 recs = cell(1, num_classes);
 precs = cell(1, num_classes);
 if runparallel
+    num_cores = feature('numcores');
+    if isempty(gcp('nocreate'))
+        parpool(num_cores);
+    end
     parfor c = 1:num_classes
         cls = classes{c};
         fprintf('Processing %s...\n', cls);
@@ -47,7 +57,12 @@ else
     end
 end
 fprintf('mAP: %f\n', mean(aps));
+
+resfile = sprintf('%s/results.mat', resdir);
+save(resfile, 'aps', 'recs', 'precs');
+
 for c = 1:num_classes
     clf; plot(recs{c}, precs{c});
+    title(sprintf('%s: %f', classes{c}, aps(c)));
     pause;
 end
