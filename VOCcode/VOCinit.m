@@ -1,3 +1,33 @@
+function VOCopts = VOCinit(datadir, dataset, resdir, testset, trainset)
+% This function initialize the VOCdevkit.
+%   datadir: the root directory which contains the VOCcode and VOC2***.
+%   dataset: the name of the dataset. "VOC2012" or "VOC2007".
+%   resdir: the directory which contains the results.
+%   testset: the name of the test set. "test" or "val".
+%   trainset: the name of the train set. "train" or "trainval".
+
+% get devkit directory with forward slashes
+devkitroot=strrep(fileparts(fileparts(mfilename('fullpath'))),'\','/');
+
+if nargin < 1
+    datadir = [devkitroot '/'];
+else
+    datadir = [datadir '/'];
+end
+if nargin < 2
+    dataset = 'VOC2012';
+end
+if nargin < 3
+    resdir = [devkitroot '/results/' dataset '/'];
+else
+    resdir = [resdir '/'];
+end
+if nargin < 4
+    testset = 'val';
+end
+if nargin < 5
+    trainset = 'train';
+end
 clear VOCopts
 
 % dataset
@@ -6,28 +36,28 @@ clear VOCopts
 % of the VOC2012 test set. You don't need to do anything special
 % to submit results for VOC2008-11.
 
-VOCopts.dataset='VOC2012';
-
-% get devkit directory with forward slashes
-devkitroot=strrep(fileparts(fileparts(mfilename('fullpath'))),'\','/');
+VOCopts.dataset=dataset;
 
 % change this path to point to your copy of the PASCAL VOC data
-VOCopts.datadir=[devkitroot '/'];
+VOCopts.datadir=datadir;
 
 % change this path to a writable directory for your results
-VOCopts.resdir=[devkitroot '/results/' VOCopts.dataset '/'];
+VOCopts.resdir=resdir;
 
 % change this path to a writable local directory for the example code
 VOCopts.localdir=[devkitroot '/local/' VOCopts.dataset '/'];
+if ~exist(VOCopts.localdir, 'dir')
+    mkdir(VOCopts.localdir);
+end
 
 % initialize the training set
 
-VOCopts.trainset='train'; % use train for development
+VOCopts.trainset=trainset; % use train for development
 % VOCopts.trainset='trainval'; % use train+val for final challenge
 
 % initialize the test set
 
-VOCopts.testset='val'; % use validation data for development test set
+VOCopts.testset=testset; % use validation data for development test set
 % VOCopts.testset='test'; % use test set for final challenge
 
 % initialize main challenge paths
@@ -140,3 +170,5 @@ VOCopts.annocachepath=[VOCopts.localdir '%s_anno.mat'];
 % options for example implementations
 
 VOCopts.exfdpath=[VOCopts.localdir '%s_fd.mat'];
+
+assignin('caller', 'VOCopts', VOCopts);
