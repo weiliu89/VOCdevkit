@@ -56,7 +56,9 @@ if runparallel
         cls = classes{c};
         [recs{c}, precs{c}, aps(c)] = ...
             VOCevaldet(VOCopts, 'comp4', cls, evaldet, verbose);
-        fprintf('%s: ap: %f\n', cls, aps(c));
+    end
+    for c = 1:num_classes
+        fprintf('%s: ap: %f\n', classes{c}, aps(c));
     end
 else
     for c = 1:num_classes
