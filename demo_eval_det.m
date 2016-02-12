@@ -38,9 +38,9 @@ aps = zeros(1, num_classes);
 recs = cell(1, num_classes);
 precs = cell(1, num_classes);
 if runparallel
-    num_cores = feature('numcores');
+    % num_cores = feature('numcores');
     if isempty(gcp('nocreate'))
-        parpool(num_cores);
+        parpool(num_classes);
     end
     parfor c = 1:num_classes
         cls = classes{c};
